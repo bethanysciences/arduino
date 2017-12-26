@@ -40,7 +40,8 @@ void setup() {
     bool status;
     
     // default settings
-    status = bme.begin();
+    // (you can also pass in a Wire library object like &Wire2)
+    status = bme.begin();  
     if (!status) {
         Serial.println("Could not find a valid BME280 sensor, check wiring!");
         while (1);
@@ -50,6 +51,8 @@ void setup() {
     delayTime = 1000;
 
     Serial.println();
+
+    delay(100); // let sensor boot up
 }
 
 

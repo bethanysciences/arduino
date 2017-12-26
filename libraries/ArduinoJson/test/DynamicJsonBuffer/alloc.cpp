@@ -1,9 +1,6 @@
+// ArduinoJson - arduinojson.org
 // Copyright Benoit Blanchon 2014-2017
 // MIT License
-//
-// Arduino JSON library
-// https://bblanchon.github.io/ArduinoJson/
-// If you like this project, please add a star!
 
 #include <ArduinoJson.h>
 #include <catch.hpp>
@@ -46,7 +43,7 @@ TEST_CASE("DynamicJsonBuffer::alloc()") {
     REQUIRE(allocatorLog.str() == "A1A2FF");
   }
 
-  SECTION("Keeps increasing allocation size after clear") {
+  SECTION("Resets allocation size after clear()") {
     allocatorLog.str("");
     {
       DynamicJsonBufferBase<SpyingAllocator> buffer(1);
@@ -55,7 +52,7 @@ TEST_CASE("DynamicJsonBuffer::alloc()") {
       buffer.clear();
       buffer.alloc(1);
     }
-    REQUIRE(allocatorLog.str() == "A1A2FFA4F");
+    REQUIRE(allocatorLog.str() == "A1A2FFA1F");
   }
 
   SECTION("Makes a big allocation when needed") {

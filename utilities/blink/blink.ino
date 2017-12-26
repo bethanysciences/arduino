@@ -9,9 +9,9 @@ void loop() {
     digitalWrite(LED_BUILTIN, HIGH);
     Serial.println("HIGH");
 
-//    int sensorValue = analogRead(A0);
-//    float voltage = sensorValue * (5.0 / 1023.0);
-//    Serial.println(voltage);
+    int sensorValue = analogRead(A0);
+    float voltage = sensorValue * (5.0 / 1023.0);
+    Serial.println(voltage);
     delay(2000);
 
     digitalWrite(LED_BUILTIN, LOW);

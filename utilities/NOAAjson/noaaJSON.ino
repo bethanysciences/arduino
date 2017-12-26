@@ -1,25 +1,23 @@
 #include "ArduinoJson.h"
 #include "WiFi101.h"
-#include "WiFi101OTA.h"
-#include "WiFiUdp.h"
 #include "RTCZero.h"
 #include "SimpleTimer.h"
-
-char ssid[] = "iotworld";             // your network SSID (name)
-char pass[] = "iotworld";             // your network password
+char ssid[] = "FWI-Guest";             // your network SSID (name)
+char pass[] = "V1sualBr@nd";             // your network password
 int status = WL_IDLE_STATUS;
 WiFiClient client;
 
 RTCZero rtc;
-int tzOffset = -4;                    // Time zone -4 EDT
-#define TIME_24_HOUR      false
+int tzOffset = -7;                    // Time zone -4 EDT
 
 SimpleTimer timer;
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial) { }
+  WiFi.setPins(8,7,4,2);                          // for Adafruit Feather M0 WiFi
+  while (!Serial);
   Serial.println("START");
+  
 
   while ( status != WL_CONNECTED) {
     Serial.print("connect to: ");
@@ -28,7 +26,6 @@ void setup() {
   }
 
   digitalWrite(LED_BUILTIN, HIGH);
-  WiFiOTA.begin("Arduino", "password", InternalStorage);
   rtc.begin();
   unsigned long epoch;
   Serial.print("pre epoch ");   Serial.println(epoch);
@@ -51,7 +48,6 @@ void setup() {
 }
 
 void loop() {
-  WiFiOTA.poll();
   timer.run();
 }
 
@@ -78,6 +74,7 @@ void displayTime() {
 }
 
 void fetchCurrent() {
+  const size_t respBuf[] = 2000;
   #define host "https://api.weather.gov/stations/KPDK/observations/current"
   #define key  "712a91952a8b182e"
   #define type  "xxx"

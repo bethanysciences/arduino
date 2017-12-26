@@ -5,5 +5,5 @@
   © 2017 Bob Smith https://github.com/bethanysciences
   MIT license
  *----------------------------------------------------------------------*/
-char ssid[] = "iotworld";     // your network SSID (name)
-char pass[] = "iotworld";     // your network password
+char ssid[] = "FWI-Guest";     // your network SSID (name) iotworld
+char pass[] = "V1sualBr@nd";   // your network password    iotworld

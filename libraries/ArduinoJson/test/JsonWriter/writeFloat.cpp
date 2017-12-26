@@ -1,9 +1,6 @@
+// ArduinoJson - arduinojson.org
 // Copyright Benoit Blanchon 2014-2017
 // MIT License
-//
-// Arduino JSON library
-// https://bblanchon.github.io/ArduinoJson/
-// If you like this project, please add a star!
 
 #include <catch.hpp>
 #include <limits>
@@ -112,5 +109,9 @@ TEST_CASE("JsonWriter::writeFloat(float)") {
 
   SECTION("999.9") {  // issue #543
     check<float>(999.9f, "999.9");
+  }
+
+  SECTION("24.3") {  // # issue #588
+    check<float>(24.3f, "24.3");
   }
 }
