@@ -1,8 +1,8 @@
 #include <Wire.h>
 #define DS3231_I2C_ADDR     0x68    // RTC I2C address
 #define keyPL               2
-#define SetMinute           3 
-#define SetHour             4
+#define SetMinute           58 
+#define SetHour             8
 
 byte decToBcd(byte val) { return ( (val/10*16) + (val%10) ); }
 byte bcdToDec(byte val) { return ( (val/16*10) + (val%16) ); }
