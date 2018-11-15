@@ -3,11 +3,13 @@
         {
             "name": "Mac",
             "includePath": [
+                "/Applications/Arduino.app/Contents/Java/tools/**",
+                "/Applications/Arduino.app/Contents/Java/hardware/arduino/avr/**",
                 "/Users/bobby/Library/Arduino15/packages/arduino/tools/**",
                 "/Users/bobby/Library/Arduino15/packages/arduino/hardware/samd/1.6.19/**"
             ],
             "forcedInclude": [
-                "/Users/bobby/Library/Arduino15/packages/arduino/hardware/samd/1.6.19/cores/arduino/Arduino.h"
+                "/Applications/Arduino.app/Contents/Java/hardware/arduino/avr/cores/arduino/Arduino.h"
             ],
             "macFrameworkPath": [
                 "/System/Library/Frameworks",

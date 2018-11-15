@@ -1,9 +1,0 @@
-HUB08	KEYWORD1
-on	KEYWORD2
-off	KEYWORD2
-begin	KEYWORD2
-drawPixel	KEYWORD2
-drawRect	KEYWORD2
-clearDisplay	KEYWORD2
-scan	KEYWORD2
-

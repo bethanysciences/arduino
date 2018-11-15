@@ -1,4 +1,4 @@
 {
-    "board": "arduino:samd:mkr1000",
+    "board": "arduino:avr:uno",
     "port": "/dev/cu.usbmodem141101"
 }
