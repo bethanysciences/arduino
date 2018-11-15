@@ -13,8 +13,10 @@
 
 #if defined(__ARM__) || defined(ARDUINO_ARCH_SAMD)
   #define REGTYPE uint32_t
+  #define SPIFLASH_SPI_SPEED 16000000
 #else
   #define REGTYPE uint8_t
+  #define SPIFLASH_SPI_SPEED 8000000
 #endif
 
 #define  SPIFLASH_SPI_STATREAD      0x02
@@ -32,6 +34,8 @@
 #define W25Q16BV_PAGES              8192   // 2,097,152 Bytes / 256 bytes per page
 #define W25Q16BV_SECTORSIZE         4096   // 1 erase sector = 4096 bytes
 #define W25Q16BV_SECTORS            512    // 2,097,152 Bytes / 4096 bytes per sector
+#define W25Q16BV_BLOCKSIZE          65536  // 1 erase block = 64K bytes
+#define W25Q16BV_BLOCKS             32     // 2,097,152 Bytes / 4096 bytes per sector
 #define W25Q16BV_MANUFACTURERID     0xEF   // Used to validate read data
 #define W25Q16BV_DEVICEID           0x14   // Used to validate read data
 
@@ -73,6 +77,8 @@ typedef enum
   SPIFLASHTYPE_W25Q16BV,
   SPIFLASHTYPE_25C02,
   SPIFLASHTYPE_W25X40CL,
+  SPIFLASHTYPE_AT25SF041,
+  SPIFLASHTYPE_W25Q64,
 } spiflash_type_t;
 
 class Adafruit_SPIFlash  : public Print {
@@ -87,15 +93,25 @@ class Adafruit_SPIFlash  : public Print {
   void PrintHexChar(const byte * pbtData, const uint32_t numBytes);
   // Flash Functions
   void GetUniqueID(uint8_t *buffer);
-  void GetManufacturerInfo (uint8_t *manufID, uint8_t *deviceID);
-  uint32_t GetJEDECID (void);
+  virtual void GetManufacturerInfo (uint8_t *manufID, uint8_t *deviceID);
+  virtual uint32_t GetJEDECID (void);
 
   void WriteEnable (bool enable);
-  uint32_t readBuffer (uint32_t address, uint8_t *buffer, uint32_t len);
-  uint32_t EraseSector (uint32_t sectorNumber);
-  uint32_t EraseChip (void);
-  uint32_t WritePage (uint32_t address, uint8_t *buffer, uint32_t len);
-  uint32_t writeBuffer (uint32_t address, uint8_t *buffer, uint32_t len);
+  virtual uint32_t readBuffer (uint32_t address, uint8_t *buffer, uint32_t len);
+  bool     eraseBlock  (uint32_t blockNumber);
+  virtual bool     EraseSector (uint32_t sectorNumber) { return eraseSector(sectorNumber); }
+  virtual bool     eraseSector (uint32_t sectorNumber);
+  bool     EraseChip (void) { return eraseChip(); }
+  bool     eraseChip (void);
+  
+  // Write one page worth of data
+  uint32_t writePage (uint32_t address, uint8_t *buffer, uint32_t len, bool fastquit=false) {
+    return WritePage(address, buffer, len, fastquit);
+  }
+  uint32_t WritePage (uint32_t address, uint8_t *buffer, uint32_t len, bool fastquit=false);
+
+  // Write an arbitrary-sized buffer
+  virtual uint32_t writeBuffer (uint32_t address, uint8_t *buffer, uint32_t len);
   uint32_t findFirstEmptyAddr(void);
   void seek(uint32_t);
   size_t write(uint8_t b);
@@ -106,25 +122,28 @@ class Adafruit_SPIFlash  : public Print {
   uint16_t numPages() {return pages; }
   uint16_t pageSize() {return pagesize;}
 
- private:
+ protected:
   spiflash_type_t type;
   int32_t pagesize;
   int32_t pages;
   int32_t totalsize;
   uint8_t addrsize;
 
+  uint32_t currentAddr;
+
+private:
   SPIClass *_spi;
 
   int8_t _ss, _clk, _mosi, _miso;
   volatile REGTYPE *clkportreg, *misoportreg, *mosiportreg;
   uint32_t clkpin, misopin, mosipin;
 
-  uint32_t currentAddr;
-
   void readspidata(uint8_t* buff, uint8_t n);
   void spiwrite(uint8_t c);
+  void spiwrite(uint8_t *data, uint16_t length);
   uint8_t spiread(void);
-  uint32_t WaitForReady();
+  void spiread(uint8_t *data, uint16_t length);
+  bool WaitForReady(uint32_t timeout=1000);
 };
 
 #endif

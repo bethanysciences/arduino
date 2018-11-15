@@ -72,6 +72,16 @@ boolean Adafruit_SPIFlash::begin(spiflash_type_t t) {
     addrsize = 24;
     pages = 2048;
     totalsize =  pages * pagesize; // 512 Kbytes
+  } else if (type == SPIFLASHTYPE_AT25SF041) {
+    pagesize = 256;
+    addrsize = 24;
+    pages = 4096;
+    totalsize = pages * pagesize;  // 1 MBytes
+  } else if (type == SPIFLASHTYPE_W25Q64) {
+	  pagesize = 256;
+	  addrsize = 24;
+	  pages = 32768;
+	  totalsize = pages * pagesize; // 8 MBytes
   }
   else {
     pagesize = 0;
@@ -119,56 +129,80 @@ void Adafruit_SPIFlash::readspidata(uint8_t* buff, uint8_t n)
   digitalWrite(_ss, HIGH);
 }
 
-void Adafruit_SPIFlash::spiwrite(uint8_t c) 
-{
-  if (_clk == -1) {
-    // hardware SPI
-    _spi->beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
-    _spi->transfer(c);
+void Adafruit_SPIFlash::spiwrite(uint8_t data) {
+  spiwrite(&data, 1);
+}
+
+void Adafruit_SPIFlash::spiwrite(uint8_t *data, uint16_t length) {
+  byte c;
+  
+  if (_clk == -1) { // hardware SPI
+    _spi->beginTransaction(SPISettings(SPIFLASH_SPI_SPEED, MSBFIRST, SPI_MODE0));
+    while (length--) {
+      c = *data;
+      data++;
+      _spi->transfer(c);
+    }
     _spi->endTransaction();
   } else {
     // Software SPI
-
-    int8_t i;
-    // MSB first, clock low when inactive (CPOL 0), data valid on leading edge (CPHA 0) 
-    // Make sure clock starts low
-    // slow version - built in shiftOut function
-    //shiftOut(_mosi, _clk, MSBFIRST, c); return;
-    
     clkportreg =  portOutputRegister(digitalPinToPort(_clk));
     clkpin = digitalPinToBitMask(_clk);
     mosiportreg =  portOutputRegister(digitalPinToPort(_mosi));
     mosipin = digitalPinToBitMask(_mosi);
     
-    for (i=7; i>=0; i--) {
-      *clkportreg &= ~clkpin;
-      if (c & (1<<i)) {
-	*mosiportreg |= mosipin;
-      } else {
-      *mosiportreg &= ~mosipin;
-      }    
-      *clkportreg |= clkpin;
+    while (length--) {
+      int8_t i;
+      c = *data;
+      data++;
+      // MSB first, clock low when inactive (CPOL 0), data valid on leading edge (CPHA 0) 
+      // Make sure clock starts low
+      // slow version - built in shiftOut function
+      //shiftOut(_mosi, _clk, MSBFIRST, c); return;
+
+      for (i=7; i>=0; i--) {
+	*clkportreg &= ~clkpin;
+	if (c & (1<<i)) {
+	  *mosiportreg |= mosipin;
+	} else {
+	  *mosiportreg &= ~mosipin;
+	}    
+	*clkportreg |= clkpin;
+      }
+      
     }
-    
     *clkportreg &= ~clkpin;
     // Make sure clock ends low
   }
 }
-
+  
 uint8_t Adafruit_SPIFlash::spiread(void) 
+{
+  uint8_t data;
+  spiread(&data, 1);
+  return data;
+}
+
+void Adafruit_SPIFlash::spiread(uint8_t *data, uint16_t length) 
 {
   uint8_t x = 0;
   if (_clk == -1) {
     // hardware SPI
-    _spi->beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
-    x = _spi->transfer(0xFF);
+    _spi->beginTransaction(SPISettings(SPIFLASH_SPI_SPEED, MSBFIRST, SPI_MODE0));
+    while (length--) {
+      x = _spi->transfer(0xFF);
+      *data = x;
+      data++;
+    }
     _spi->endTransaction();
-
-    return x;
   } else {
     // Software SPI
-    return shiftIn(_miso, _clk, MSBFIRST);
-    
+    while (length--) {
+       x = shiftIn(_miso, _clk, MSBFIRST);
+      *data = x;
+      data++;
+    }
+    /*    
     int8_t i;
 
     // MSB first, clock low when inactive (CPOL 0), data valid on leading edge (CPHA 0) 
@@ -186,8 +220,7 @@ uint8_t Adafruit_SPIFlash::spiread(void)
     }
     // Make sure clock ends low
     *clkportreg &= ~clkpin;
-    
-    return x;
+    */
   }
 }
 
@@ -201,27 +234,22 @@ uint8_t Adafruit_SPIFlash::spiread(void)
             the SPI flash is ready (SPIFLASH_ERROR_OK)
 */
 /**************************************************************************/
-uint32_t Adafruit_SPIFlash::WaitForReady()
+bool Adafruit_SPIFlash::WaitForReady(uint32_t timeout)
 {
-  uint32_t timeout = 0;
   uint8_t status;
 
-  while ( timeout < 1000 )
+  while ( timeout > 0 )
   {
     status = readstatus() & SPIFLASH_STAT_BUSY;
     if (status == 0)
     {
-      break;
+      return false;
     }
-    timeout++;
-  }
-  if ( timeout == 1000 )
-  {
-    // In this case, 1 equals an error so we can say "if(results) ..." 
-    return 1;
+    delay(1);
+    timeout--;
   }
 
-  return 0;
+  return true;
 }
 
 /* ************** */
@@ -356,9 +384,8 @@ uint32_t Adafruit_SPIFlash::GetJEDECID (void)
   spiwrite(0x00);            // Dummy write
   spiwrite(0x00);            // Dummy write
 
-  uint32_t id;
+  uint32_t id = 0;
   id = spiread(); id <<= 8;
-  id |= spiread(); id <<= 8;
   id |= spiread(); id <<= 8;
   id |= spiread();
 
@@ -433,21 +460,17 @@ uint32_t Adafruit_SPIFlash::readBuffer (uint32_t address, uint8_t *buffer, uint3
     spiwrite(address & 0xFF);             // address lower 8
   }
 
-  // Fill response buffer
-  for (a = address; a < address + len; a++, i++)
-  {
-    if (a > totalsize)
-    {
-      // Oops ... we're at the end of the flash memory
-	  // return bytes written up until now
-      return i;
-    }
-    buffer[i] = spiread();
+  if ((address+len) > totalsize) {
+    len = totalsize - address;
   }
+
+  // Fill response buffer
+  spiread(buffer, len);
+
   digitalWrite(_ss, HIGH);
 
-  // Return bytes written
-  return i;
+  // Return bytes read
+  return len;
 }
 
 /**************************************************************************/
@@ -458,17 +481,13 @@ uint32_t Adafruit_SPIFlash::readBuffer (uint32_t address, uint8_t *buffer, uint3
                 The sector number to erase (zero-based).
 */
 /**************************************************************************/
-uint32_t Adafruit_SPIFlash::EraseSector (uint32_t sectorNumber)
+bool Adafruit_SPIFlash::eraseSector (uint32_t sectorNumber)
 {
   // Make sure the address is valid
-  if (sectorNumber >= W25Q16BV_SECTORS)
-  {
-    return 0;
-  }  
+  if (sectorNumber >= W25Q16BV_SECTORS) return false;
 
   // Wait until the device is ready or a timeout occurs
-  if (WaitForReady())
-    return 0;
+  if (WaitForReady())    return false;
 
   // Make sure the chip is write enabled
   WriteEnable (1);
@@ -479,7 +498,7 @@ uint32_t Adafruit_SPIFlash::EraseSector (uint32_t sectorNumber)
   if (!(status & SPIFLASH_STAT_WRTEN))
   {
     // Throw a write protection error (write enable latch not set)
-    return 0;
+    return false;
   }
 
   // Send the erase sector command
@@ -493,9 +512,54 @@ uint32_t Adafruit_SPIFlash::EraseSector (uint32_t sectorNumber)
 
   // Wait until the busy bit is cleared before exiting
   // This can take up to 400ms according to the datasheet
-  while (readstatus() & SPIFLASH_STAT_BUSY);
+  if (WaitForReady(500))    return false;
 
-  return 1;
+  return true;
+}
+
+
+/**************************************************************************/
+/*! 
+    @brief Erases the contents of a single block
+    @param[in]  blockNumber
+                The block number to erase (zero-based).
+*/
+/**************************************************************************/
+bool Adafruit_SPIFlash::eraseBlock (uint32_t blockNumber)
+{
+  // Make sure the address is valid
+  if (blockNumber >= W25Q16BV_BLOCKS) {
+    return false;
+  }  
+
+  // Wait until the device is ready or a timeout occurs
+  if (WaitForReady())    return false;
+
+  // Make sure the chip is write enabled
+  WriteEnable (1);
+
+  // Make sure the write enable latch is actually set
+  uint8_t status;
+  status = readstatus();
+  if (!(status & SPIFLASH_STAT_WRTEN))  {
+    // Throw a write protection error (write enable latch not set)
+    return false;
+  }
+
+  // Send the erase sector command
+  uint32_t address = blockNumber * W25Q16BV_BLOCKSIZE;
+  digitalWrite(_ss, LOW);
+  spiwrite(W25Q16BV_CMD_BLOCKERASE64); 
+  spiwrite((address >> 16) & 0xFF);     // address upper 8
+  spiwrite((address >> 8) & 0xFF);      // address mid 8
+  spiwrite(address & 0xFF);             // address lower 8
+  digitalWrite(_ss, HIGH);
+
+  // Wait until the busy bit is cleared before exiting
+  // This can take up to 2s according to the datasheet
+  if (WaitForReady(2000))    return false;
+
+  return true;
 }
 
 /**************************************************************************/
@@ -503,48 +567,43 @@ uint32_t Adafruit_SPIFlash::EraseSector (uint32_t sectorNumber)
     @brief Erases the entire flash chip
 */
 /**************************************************************************/
-uint32_t Adafruit_SPIFlash::EraseChip (void)
+bool Adafruit_SPIFlash::eraseChip (void)
 {
-  Serial.println("A");
+  //Serial.println("A");
   // Wait until the device is ready or a timeout occurs
-  if (WaitForReady())
-    return 0;
+  if (WaitForReady()) return false;
 
-  Serial.println("B");
-  Serial.print("Stat: "); Serial.println(readstatus(), HEX);
+  //Serial.println("B");
+  //Serial.print("Stat: "); Serial.println(readstatus(), HEX);
   // Make sure the chip is write enabled
   WriteEnable (1);
 
-  Serial.println("C");
+  //Serial.println("C");
 
   // Make sure the write enable latch is actually set
   uint8_t status;
   status = readstatus();
-  Serial.print("Stat: "); Serial.println(readstatus(), HEX);
+  //Serial.print("Stat: "); Serial.println(readstatus(), HEX);
   if (!(status & SPIFLASH_STAT_WRTEN))
   {
     // Throw a write protection error (write enable latch not set)
-    return 0;
+    return false;
   }
-
-  Serial.println("D");
 
   // Send the erase chip command
   digitalWrite(_ss, LOW);
   spiwrite(W25_CMD_CHIPERASE); 
   digitalWrite(_ss, HIGH);
 
-  Serial.print("Stat: "); Serial.println(readstatus(), HEX);
-
-  Serial.println("E");
+  //Serial.print("Stat: "); Serial.println(readstatus(), HEX);
+  //Serial.println("E");
 
   // Wait until the busy bit is cleared before exiting
   // This can take up to 10 seconds according to the datasheet!
-  while (readstatus() & SPIFLASH_STAT_BUSY) {
-    Serial.print("Stat: "); Serial.println(readstatus(), HEX);
-  }
-
-  return 1;
+  if (WaitForReady(12000))
+    return false;
+  
+  return true;
 }
 
 /**************************************************************************/
@@ -564,10 +623,9 @@ uint32_t Adafruit_SPIFlash::EraseChip (void)
                 within the limits of the starting address and page length.
 */
 /**************************************************************************/
-uint32_t Adafruit_SPIFlash::WritePage (uint32_t address, uint8_t *buffer, uint32_t len)
+uint32_t Adafruit_SPIFlash::WritePage (uint32_t address, uint8_t *buffer, uint32_t len, bool fastquit)
 {
   uint8_t status;
-  uint32_t i;
 
   // Make sure the address is valid
   if (address >= W25Q16BV_MAXADDRESS)
@@ -631,21 +689,19 @@ uint32_t Adafruit_SPIFlash::WritePage (uint32_t address, uint8_t *buffer, uint32
   }
 
   // Transfer data
-  for (i = 0; i < len; i++)
-  {
-    spiwrite(buffer[i]);
-  }
+  spiwrite(buffer, len);
+
   // Write only occurs after the CS line is de-asserted
   digitalWrite(_ss, HIGH);
 
-  // Wait at least 3ms (max page program time according to datasheet)
-  delay(3);
-  
-  // Wait until the device is ready or a timeout occurs
-  if (WaitForReady())
-    return 0;
+  if (! fastquit) {
+    // Wait until the device is ready or a timeout occurs
+    if (WaitForReady(5)) {
+      return 0;
+    }
+  }
 
-  return len;
+  return(len);
 }
 
 /**************************************************************************/

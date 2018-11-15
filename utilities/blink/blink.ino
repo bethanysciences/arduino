@@ -1,9 +1,9 @@
 #include <Arduino.h>
-
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(115200);  
+    while (!Serial);  
+    Serial.println("START");
     pinMode(LED_BUILTIN, OUTPUT);
-    while (!Serial);
 }
 void loop() {
     digitalWrite(LED_BUILTIN, HIGH);
